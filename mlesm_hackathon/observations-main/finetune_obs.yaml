@@ -1,0 +1,169 @@
+defaults:
+- data: zarr
+- dataloader: native_grid
+- datamodule: single
+- diagnostics: evaluation
+- hardware: example
+- graph: encoder_decoder_only
+- model: transformer
+- training: default
+- _self_
+
+config_validation: False
+
+### This file is for local experimentation.
+##  When you commit your changes, assign the new features and keywords
+##  to the correct defaults.
+# For example to change from default GPU count:
+# hardware:
+#   num_gpus_per_node: 1
+
+diagnostics:
+  plot:
+    callbacks: []
+  log:
+    mlflow:
+      tracking_uri: null
+    wandb:
+      entity: null
+hardware:
+  files:
+    graph: obs_graph.pt
+    dataset: aifs-ea-an-oper-0001-mars-o96-1979-2023-6h-v8.zarr
+    dataset_obs: imerg-nasa-grib-o96-1998-2024-6h-v1.zarr
+  paths:
+    output: /p/scratch/training2533/{USERNAME}
+    data: /p/project1/training2533/datasets
+    checkpoints: /p/project1/training2533/checkpoints
+  accelerator: auto
+  num_gpus_per_node: 1
+  num_nodes: 1
+  num_gpus_per_model: 1
+model:
+  num_channels: 1024
+dataloader:
+  dataset:
+    join:
+    - dataset: ${hardware.paths.data}/${hardware.files.dataset}
+      start: 1999
+      end: 2023
+      frequency: ${data.frequency}
+      drop:  [tp]
+    - dataset: ${hardware.paths.data}/${hardware.files.dataset_obs}
+      start: 1999
+      end: 2023
+      frequency: ${data.frequency}
+      rename:
+        tp_imerg_0: tp
+      drop:  []
+    reorder:
+      '10u': 0
+      '10v': 1
+      '2d': 2
+      '2t': 3
+      'cos_julian_day': 4
+      'cos_latitude': 5
+      'cos_local_time': 6
+      'cos_longitude': 7
+      'cp': 8
+      'insolation': 9
+      'lsm': 10
+      'msl': 11
+      'q_100': 12
+      'q_1000': 13
+      'q_150': 14
+      'q_200': 15
+      'q_250': 16
+      'q_300': 17
+      'q_400': 18
+      'q_50': 19
+      'q_500': 20
+      'q_600': 21
+      'q_700': 22
+      'q_850': 23
+      'q_925': 24
+      'sdor': 25
+      'sin_julian_day': 26
+      'sin_latitude': 27
+      'sin_local_time': 28
+      'sin_longitude': 29
+      'skt': 30
+      'slor': 31
+      'sp': 32
+      't_100': 33
+      't_1000': 34
+      't_150': 35
+      't_200': 36
+      't_250': 37
+      't_300': 38
+      't_400': 39
+      't_50': 40
+      't_500': 41
+      't_600': 42
+      't_700': 43
+      't_850': 44
+      't_925': 45
+      'tcw': 46
+      'tp': 47
+      'u_100': 48
+      'u_1000': 49
+      'u_150': 50
+      'u_200': 51
+      'u_250': 52
+      'u_300': 53
+      'u_400': 54
+      'u_50': 55
+      'u_500': 56
+      'u_600': 57
+      'u_700': 58
+      'u_850': 59
+      'u_925': 60
+      'v_100': 61
+      'v_1000': 62
+      'v_150': 63
+      'v_200': 64
+      'v_250': 65
+      'v_300': 66
+      'v_400': 67
+      'v_50': 68
+      'v_500': 69
+      'v_600': 70
+      'v_700': 71
+      'v_850': 72
+      'v_925': 73
+      'w_100': 74
+      'w_1000': 75
+      'w_150': 76
+      'w_200': 77
+      'w_250': 78
+      'w_300': 79
+      'w_400': 80
+      'w_50': 81
+      'w_500': 82
+      'w_600': 83
+      'w_700': 84
+      'w_850': 85
+      'w_925': 86
+      'z': 87
+      'z_100': 88
+      'z_1000': 89
+      'z_150': 90
+      'z_200': 91
+      'z_250': 92
+      'z_300': 93
+      'z_400': 94
+      'z_50': 95
+      'z_500': 96
+      'z_600': 97
+      'z_700': 98
+      'z_850': 99
+      'z_925': 100
+  limit_batches:
+    training: 1_000
+    validation: 1_000
+training:
+  fork_run_id: 5440dece28cd4ae98338a283815a05a1
+  transfer_learning: True
+  load_weights_only: True
+  max_epochs: 2 # base checkpoint was trained 48 epochs, 
+  max_steps: 2_000

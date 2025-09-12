@@ -1,0 +1,15 @@
+# Configuration file for inference workflow
+
+# Path to the trained model checkpoint
+checkpoint: /p/project1/training2533/checkpoints/workflows/rollout_inference.ckpt
+
+# Date for which to run the inference
+# Can only run within 2024-08
+date: 2024-08-01T0600
+
+lead_time: 6
+
+input:
+  grib: /p/project1/training2533/checkpoints/initial_conditions/2024-08.grib
+output:
+  netcdf: PATH_GOES_HERE

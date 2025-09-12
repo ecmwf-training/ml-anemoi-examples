@@ -1,0 +1,25 @@
+checkpoint: /p/project1/training2533/checkpoints/3a123d830df7407a8314d5bb3018a239/inference-last.ckpt
+use_grib_paramid: true
+allow_nans: true
+date: 2012-01-02
+lead_time: 8760 # 1 year
+ 
+input:
+    dataset:
+        join:
+        - datasets:  /p/project1/training2533/datasets/aifs-ea-an-oper-0001-mars-o96-1979-2023-6h-v8.zarr
+          start: 1979-01-01
+          end: 2023-12-31
+          drop:  [tp, cp, skt]
+        - datasets: /p/project1/training2533/datasets/aifs-ea-an-oper-0001-mars-o96-1979-2024-6h-v1-accumulation24h.zarr
+          start: 1979-01-01
+          end: 2023-12-31
+          select: [tp, cp]
+        - datasets: /p/project1/training2533/datasets/aifs-ea-an-oper-0001-mars-o96-1979-2023-6h-v2-s2s-predictors.zarr
+          start: 1979-01-01
+          end: 2023-12-31
+          select: [sst, ci]
+
+output:
+    netcdf:
+        path: aifs_forced_2012-01-02_1y.nc

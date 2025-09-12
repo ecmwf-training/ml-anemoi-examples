@@ -1,0 +1,5 @@
+3e9e876d8ae04e9481e6ac6c3ebf9d55 - Small AIFS with prognostic sic and sst – 24h timestep – pretraining
+7a37740db67d4240997ce1d6ee887478 - AIFS – 24h timestep – pretraining
+3a123d830df7407a8314d5bb3018a239 - AIFS forced by sic and sst – 24h timestep – pretraining
+764af980b8b44b5b85c9223fb6a626ba - Small AIFS forced by sic and sst – 24h timestep – pretraining
+

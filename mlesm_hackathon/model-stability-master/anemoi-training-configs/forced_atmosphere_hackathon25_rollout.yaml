@@ -1,0 +1,298 @@
+# anemoi-datasets                    0.5.26
+# anemoi-graphs                      0.6.3
+# anemoi-inference                   0.7.0
+# anemoi-models                      0.9.0
+# anemoi-training                    0.6.0
+# anemoi-transform                   0.1.15
+# anemoi-utils                       0.4.31
+
+defaults:
+- data: zarr
+- dataloader: native_grid
+- diagnostics: evaluation
+- datamodule: single
+- hardware: example
+- graph: encoder_decoder_only
+- model: transformer
+- training: default
+- _self_
+
+# set to true to switch on config validation
+config_validation: False
+
+data:
+  forcing:
+  - "cos_latitude"
+  - "cos_longitude"
+  - "sin_latitude"
+  - "sin_longitude"
+  - "cos_julian_day"
+  - "cos_local_time"
+  - "sin_julian_day"
+  - "sin_local_time"
+  - "insolation"
+  - "lsm"
+  - "sdor"
+  - "slor"
+  - "z"
+  - "ci"
+  - "sst"
+  timestep: 24h
+  resolution: o96
+  diagnostic:
+  - tp
+  - cp
+  processors:
+    normalizer:
+      _target_: anemoi.models.preprocessing.normalizer.InputNormalizer
+      config: ${data.normalizer}
+    const_imputer:
+      _target_: anemoi.models.preprocessing.imputer.ConstantImputer
+      config: ${data.const_imputer}
+  normalizer:
+    max:
+      - "sdor"
+      - "slor"
+      - "z"
+    std:
+      - "tp"
+      - "cp"
+      - tcw
+      - q_50
+      - q_100
+      - q_150
+      - q_200
+      - q_250
+      - q_300
+      - q_400
+      - q_500
+      - q_600
+      - q_700
+      - q_850
+      - q_925
+      - q_1000
+    min-max:
+    none:
+      - "cos_latitude"
+      - "cos_longitude"
+      - "sin_latitude"
+      - "sin_longitude"
+      - "cos_julian_day"
+      - "cos_local_time"
+      - "sin_julian_day"
+      - "sin_local_time"
+      - "insolation"
+      - "lsm"
+    remap:
+      cp: tp
+  const_imputer:
+    0:
+      - ci
+      - sst
+
+model:
+  num_channels: 1024
+  bounding: #These are applied in order
+    - _target_: anemoi.models.layers.bounding.ReluBounding #[0, infinity)
+      variables:
+      - tp
+      - tcw
+      - q_50
+      - q_100
+      - q_150
+      - q_200
+      - q_250
+      - q_300
+      - q_400
+      - q_500
+      - q_600
+      - q_700
+      - q_850
+      - q_925
+      - q_1000
+    - _target_: anemoi.models.layers.bounding.FractionBounding # fraction of tp
+      variables:
+      - cp
+      min_val: 0
+      max_val: 1
+      total_var: tp
+
+training:
+  # load_weights_only:
+  # fork_run_id:
+  load_weights_only: True
+  transfer_learning: False
+  fork_run_id: 3a123d830df7407a8314d5bb3018a239
+  # run_id: 
+
+  rollout:
+    epoch_increment: 1
+    max: 12
+    start: 1
+  
+  max_epochs: 13
+  lr:
+    rate: 8e-7 # tests
+    iterations: 7900
+    warmup_t: 1000
+    min: 3e-7 #Not scaled by #GPU
+  variable_loss_scaling:
+    default: 1
+    pl:
+      q: 0.6 #1
+      t: 6   #1
+      u: 0.8 #0.5
+      v: 0.5 #0.33
+      w: 0.001
+      z: 12  #1
+    sfc:
+      sp: 10
+      10u: 0.1
+      10v: 0.1
+      2d: 0.5
+      tp: 0.025
+      cp: 0.0025
+  metrics:
+    - z_500
+    - t_100
+    - t_50
+    - t_850
+    - q_850
+    - u_850
+    - u_1000
+    - v_850
+    - v_1000
+
+hardware:
+  # number of GPUs per node and number of nodes (for DDP)
+  accelerator: auto
+  # num_gpus_per_node: 4 
+  # num_nodes: 1   
+  num_gpus_per_node: ${oc.decode:${oc.env:SLURM_GPUS_PER_NODE}}
+  num_nodes: ${oc.decode:${oc.env:SLURM_NNODES}}
+  files:
+    dataset: aifs-o6-tpa-ocda-0001-mars-${data.resolution}-1993-2024-6h-v5-ocean-surface-sea-ice.zarr
+    dataset_ocean: aifs-ea-an-oper-0001-mars-${data.resolution}-1979-2023-6h-v2-s2s-predictors.zarr
+    dataset_atmosphere: aifs-ea-an-oper-0001-mars-${data.resolution}-1979-2023-6h-v8.zarr
+    dataset_24h_accumulations: aifs-ea-an-oper-0001-mars-${data.resolution}-1979-2024-6h-v1-accumulation24h.zarr
+    graph: graph_enc_proc_dec_${data.resolution}.pt
+  paths:
+    output: /p/project1/training2533/challenge4_outputs/${data.resolution}/
+    grids: /p/project1/training2533/aifs_grids
+    data: /p/project1/training2533/datasets/
+    warm_start: null
+
+diagnostics:
+  plot:
+    asynchronous: True 
+    parameters: [z_500, t_850, u_850, v_850, 2t, 10u, 10v, cp, sp, msl]
+    colormaps:
+      seaice: 
+        _target_: anemoi.training.utils.custom_colormaps.MatplotlibColormap
+        name: Blues
+        variables: [avg_siconc, avg_icesalt, avg_sialb, avg_snvol, avg_sivol]
+    callbacks: 
+      # Add plot callbacks here
+      - _target_: anemoi.training.diagnostics.callbacks.plot.PlotLoss
+        # group parameters by categories when visualizing contributions to the loss
+        # one-parameter groups are possible to highlight individual parameters
+        parameter_groups:
+          seaice: [avg_siconc, avg_siue, avg_sivn, avg_sivol, avg_snvol, avg_icesalt, avg_sialb]
+          ocean: [avg_sos, avg_tos, avg_zos, avg_svn, avg_sve]
+      - _target_: anemoi.training.diagnostics.callbacks.plot.PlotSample
+        sample_idx: ${diagnostics.plot.sample_idx}
+        per_sample : 6
+        parameters: ${diagnostics.plot.parameters}
+        colormaps: ${diagnostics.plot.colormaps}
+        accumulation_levels_plot: [0, 0.05, 0.1, 0.25, 0.5, 1, 1.5, 2, 3, 4, 5, 6, 7, 100] # in mm
+  log:
+    mlflow:
+      enabled: True
+      offline: True
+      authentication: True
+      log_model: False
+      tracking_uri: https://mlflow.ecmwf.int
+      experiment_name: 'hackathon25_stability'
+      run_name: 'AIFS forced by sic and sst – 24h timestep – pretraining'
+      max_params_length: 2000
+    wandb:
+      enabled: False
+      entity: 'placeholder'
+
+dataloader:
+  batch_size:
+    training: 1
+    validation: 1
+    test: 1
+    predict: 1
+  limit_batches:
+    training: 1000
+    validation: 1000
+
+  dataset: ${hardware.paths.data}/${hardware.files.dataset_atmosphere}
+
+  training:
+    dataset:
+    - dataset: ${hardware.paths.data}/${hardware.files.dataset_atmosphere}
+      start: 1979
+      end: 2010
+      frequency: ${data.frequency}
+      drop:  [tp, cp, skt]
+    - dataset: ${hardware.paths.data}/${hardware.files.dataset_ocean}
+      start: 1979
+      end: 2010
+      frequency: ${data.frequency}
+      select: [sst, ci]
+    - dataset: ${hardware.paths.data}/${hardware.files.dataset_24h_accumulations}
+      start: 1979
+      end: 2010
+      frequency: ${data.frequency}
+      select: [tp, cp] 
+    start: 1979
+    end: 2010
+    frequency: ${data.frequency}
+
+  validation_rollout: 1 # number of rollouts to use for validation, must be equal or greater than rollout expected by callbacks
+
+  validation:
+    dataset:
+    - dataset: ${hardware.paths.data}/${hardware.files.dataset_atmosphere}
+      start: 2011
+      end: 2023
+      frequency: ${data.frequency}
+      drop:  [tp, cp, skt]
+    - dataset: ${hardware.paths.data}/${hardware.files.dataset_ocean}
+      start: 2011
+      end: 2023
+      frequency: ${data.frequency}
+      select: [sst, ci]
+    - dataset: ${hardware.paths.data}/${hardware.files.dataset_24h_accumulations}
+      start: 2011
+      end: 2023
+      frequency: ${data.frequency}
+      select: [tp, cp] 
+    start: 2011
+    end: 2023
+    frequency: ${data.frequency}
+
+  testing:
+    dataset:
+    - dataset: ${hardware.paths.data}/${hardware.files.dataset_atmosphere}
+      start: 2024
+      end: 2024
+      frequency: ${data.frequency}
+      drop:  [tp, cp, skt]
+    - dataset: ${hardware.paths.data}/${hardware.files.dataset_ocean}
+      start: 2024
+      end: 2024
+      frequency: ${data.frequency}
+      select: [sst, ci]
+    - dataset: ${hardware.paths.data}/${hardware.files.dataset_24h_accumulations}
+      start: 2024
+      end: 2024
+      frequency: ${data.frequency}
+      select: [tp, cp] 
+    start: 2024
+    end: 2024
+    frequency: ${data.frequency}
+
